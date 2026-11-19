@@ -1,0 +1,45 @@
+# /etc/systemd/system/fileservice.service
+#
+# Serviço de ficheiros (Spring Boot). Instalar com deploy/instalar.sh ou copiar à mão e depois:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now fileservice
+# Registos:  journalctl -u fileservice -f
+
+[Unit]
+Description=Servico de ficheiros (file-service)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fileservice
+Group=fileservice
+WorkingDirectory=/opt/fileservice
+
+# Segredos e configuração (ver deploy/fileservice.env.example)
+EnvironmentFile=/etc/fileservice/fileservice.env
+Environment=LANG=C.UTF-8
+
+# $JAVA_OPTS (sem chavetas) é dividido em argumentos separados pelo systemd.
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/fileservice/file-service.jar
+
+# A JVM termina com 143 quando recebe SIGTERM: é uma paragem normal.
+SuccessExitStatus=143
+# Tem de ser superior ao tempo de paragem graciosa do Spring (30 s por omissão).
+TimeoutStopSec=45
+Restart=on-failure
+RestartSec=5
+
+# Ficheiros criados com permissões 640 / pastas 750
+UMask=0027
+LimitNOFILE=65536
+
+# Endurecimento: o processo só escreve na pasta de dados e no seu /tmp privado.
+# Se FILESERVICE_STORAGE_PATH apontar para outro disco/montagem, acrescentar aqui o caminho.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/fileservice
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,661 @@
+{
+  "info": {
+    "_postman_id": "d541cd8d-4c44-4f34-955d-a43ab42c2d2b",
+    "name": "Serviço de Ficheiros - Testes locais",
+    "description": "Testes funcionais locais: health, administração, ficheiros privados, links assinados e upload/leitura pública. Configure baseUrl e adminKey nas variáveis da coleção antes de executar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8085"
+    },
+    {
+      "key": "adminKey",
+      "value": "dev-admin-key-apenas-para-desenvolvimento"
+    },
+    {
+      "key": "appCode",
+      "value": ""
+    },
+    {
+      "key": "apiKey",
+      "value": ""
+    },
+    {
+      "key": "fileId",
+      "value": ""
+    },
+    {
+      "key": "signedDownloadUrl",
+      "value": ""
+    },
+    {
+      "key": "signedUploadUrl",
+      "value": ""
+    },
+    {
+      "key": "publicFileId",
+      "value": ""
+    },
+    {
+      "key": "publicUrl",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Verificar serviço",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Esperado: HTTP 200 e corpo com status UP."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Serviço disponível', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().status).to.eql('UP');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Administração",
+      "item": [
+        {
+          "name": "Registar aplicação de teste",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('appCode', 'postman-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Aplicação criada', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.application.code).to.eql(pm.collectionVariables.get('appCode'));",
+                  "    pm.expect(data.apiKey).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('apiKey', data.apiKey);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Admin-Key",
+                "value": "{{adminKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{appCode}}\",\n  \"name\": \"Aplicação de teste Postman\",\n  \"allowedOrigins\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/applications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "applications"
+              ]
+            },
+            "description": "Gera automaticamente um código único e guarda a chave de API nas variáveis da coleção. A chave é devolvida apenas nesta resposta."
+          }
+        },
+        {
+          "name": "Consultar aplicação criada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Aplicação encontrada', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().code).to.eql(pm.collectionVariables.get('appCode'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/applications/{{appCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "applications",
+                "{{appCode}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Ficheiro privado",
+      "item": [
+        {
+          "name": "Upload privado (seleccionar ficheiro)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ficheiro enviado', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.id).to.be.a('string');",
+                  "    pm.expect(data.visibility).to.eql('PRIVATE');",
+                  "    pm.collectionVariables.set('fileId', data.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-App-Id",
+                "value": "{{appCode}}"
+              },
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "folder",
+                  "value": "postman/testes",
+                  "type": "text"
+                },
+                {
+                  "key": "visibility",
+                  "value": "PRIVATE",
+                  "type": "text"
+                },
+                {
+                  "key": "uploadedBy",
+                  "value": "postman-local",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/files",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files"
+              ]
+            },
+            "description": "Antes de enviar, escolha um ficheiro permitido na linha file. Não defina manualmente Content-Type: o Postman acrescenta o boundary do multipart."
+          }
+        },
+        {
+          "name": "Listar ficheiros",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Listagem devolvida', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().items).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-App-Id",
+                "value": "{{appCode}}"
+              },
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/files?folder=postman%2Ftestes&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files"
+              ],
+              "query": [
+                {
+                  "key": "folder",
+                  "value": "postman/testes"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar metadados",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Metadados do ficheiro devolvidos', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('fileId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-App-Id",
+                "value": "{{appCode}}"
+              },
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/files/{{fileId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files",
+                "{{fileId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Descarregar conteúdo privado",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-App-Id",
+                "value": "{{appCode}}"
+              },
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/files/{{fileId}}/content?download=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files",
+                "{{fileId}}",
+                "content"
+              ],
+              "query": [
+                {
+                  "key": "download",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "O Postman mostra o conteúdo recebido; use Save Response para guardar o ficheiro localmente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Conteúdo descarregado', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar link de leitura assinado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Link assinado criado', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.url).to.include('/api/v1/public/files/');",
+                  "    pm.collectionVariables.set('signedDownloadUrl', data.url);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-App-Id",
+                "value": "{{appCode}}"
+              },
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiresInSeconds\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/files/{{fileId}}/signed-url",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files",
+                "{{fileId}}",
+                "signed-url"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ler ficheiro pelo link assinado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Link assinado permite leitura', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{signedDownloadUrl}}",
+            "description": "Enviar logo após criar o link, antes dos 5 minutos de validade."
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Upload assinado e ficheiro público",
+      "item": [
+        {
+          "name": "Criar link de upload público",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Link de upload criado', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.url).to.include('/api/v1/public/uploads');",
+                  "    pm.collectionVariables.set('signedUploadUrl', data.url);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-App-Id",
+                "value": "{{appCode}}"
+              },
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folder\": \"postman/publicos\",\n  \"visibility\": \"PUBLIC\",\n  \"uploadedBy\": \"postman-local\",\n  \"expiresInSeconds\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/upload-urls",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "upload-urls"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Enviar ficheiro com link assinado (seleccionar ficheiro)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Upload assinado concluído', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.visibility).to.eql('PUBLIC');",
+                  "    pm.expect(data.publicUrl).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('publicFileId', data.id);",
+                  "    pm.collectionVariables.set('publicUrl', data.publicUrl);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": "{{signedUploadUrl}}",
+            "description": "Selecione um ficheiro permitido no campo file. O Postman envia o URL assinado sem cabeçalhos de API."
+          }
+        },
+        {
+          "name": "Ler ficheiro público sem credenciais",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ficheiro público acessível', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{publicUrl}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Limpeza opcional",
+      "item": [
+        {
+          "name": "Eliminar ficheiro privado de teste",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ficheiro de teste eliminado', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-App-Id",
+                "value": "{{appCode}}"
+              },
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/files/{{fileId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files",
+                "{{fileId}}"
+              ]
+            },
+            "description": "Opcional e destrutivo para o ficheiro privado criado nesta coleção. Execute apenas depois de concluir os testes de leitura."
+          }
+        }
+      ]
+    }
+  ]
+}

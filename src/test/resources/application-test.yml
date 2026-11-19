@@ -1,0 +1,14 @@
+# Perfil usado pelo teste de integração: H2 em memória em modo PostgreSQL (sem dependências externas).
+spring:
+  datasource:
+    url: jdbc:h2:mem:fileservice;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+
+fileservice:
+  public-base-url: ""
+  security:
+    admin-key: chave-admin-de-teste-0123456789
+    signing-secret: segredo-de-assinatura-de-teste-0123456789-abcdef
+  limits:
+    max-file-size: 1MB

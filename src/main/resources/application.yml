@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: file-service
+
+  datasource:
+    url: ${FILESERVICE_DB_URL:jdbc:postgresql://localhost:5432/fileservice}
+    username: ${FILESERVICE_DB_USER:fileservice}
+    password: ${FILESERVICE_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+
+  servlet:
+    multipart:
+      # Tecto global do servidor. Os limites por aplicação (mais baixos) são aplicados pelo serviço.
+      max-file-size: 100MB
+      max-request-size: 105MB
+      # O corpo só é interpretado depois de a autenticação passar (ver WebConfig).
+      resolve-lazily: true
+
+server:
+  port: ${FILESERVICE_PORT:8085}
+  # Atrás do Nginx: respeita X-Forwarded-Proto/Host para gerar URLs públicos correctos.
+  forward-headers-strategy: framework
+  shutdown: graceful
+  tomcat:
+    # Quando um upload é recusado cedo (401, 403, 413), o Tomcat descarta o resto do corpo em
+    # vez de cortar a ligação, para o cliente receber a resposta de erro em JSON.
+    # Manter igual a spring.servlet.multipart.max-request-size.
+    max-swallow-size: 105MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+  health:
+    diskspace:
+      path: ${fileservice.storage.base-path}
+
+fileservice:
+  # URL público do serviço (ex.: https://ficheiros.pumangol.co.ao). Se ficar vazio,
+  # os links são construídos a partir do pedido recebido.
+  public-base-url: ${FILESERVICE_PUBLIC_BASE_URL:}
+
+  storage:
+    # Pasta raiz no servidor de ficheiros. Cada aplicação fica na sua subpasta.
+    base-path: ${FILESERVICE_STORAGE_PATH:/var/lib/fileservice/storage}
+
+  security:
+    # Chave de administração (cabeçalho X-Admin-Key). Vazia = API de administração desligada.
+    admin-key: ${FILESERVICE_ADMIN_KEY:}
+    # Segredo HMAC dos links temporários. Obrigatório, mínimo 32 caracteres.
+    signing-secret: ${FILESERVICE_SIGNING_SECRET:}
+
+  limits:
+    # Valores por omissão; cada aplicação pode ter os seus.
+    max-file-size: 20MB
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/gif
+      - image/webp
+      - application/pdf
+      - text/plain
+      - text/csv
+      - application/msword
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/vnd.ms-excel
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/vnd.ms-powerpoint
+      - application/vnd.openxmlformats-officedocument.presentationml.presentation
+
+  signed-urls:
+    default-ttl: 5m
+    max-ttl: 24h

@@ -1,0 +1,17 @@
+target/
+data/
+*.log
+*.jar
+*.tsbuildinfo
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Segredos locais
+.env*
+!.env.example

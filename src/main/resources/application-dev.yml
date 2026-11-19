@@ -1,0 +1,14 @@
+# Perfil de desenvolvimento local:  mvn spring-boot:run -Dspring-boot.run.profiles=dev
+# NUNCA usar estes segredos fora da máquina de desenvolvimento.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fileservice
+    username: fileservice
+    password: fileservice
+
+fileservice:
+  storage:
+    base-path: ./data/storage
+  security:
+    admin-key: dev-admin-key-apenas-para-desenvolvimento
+    signing-secret: dev-signing-secret-apenas-para-desenvolvimento-0123456789
